@@ -1,0 +1,26 @@
+{
+  "enabled": {
+    "type": "bool",
+    "description": "总开关",
+    "hint": "关闭后三项 tweak 全部不生效。",
+    "default": true
+  },
+  "context_compression_tweak": {
+    "type": "bool",
+    "description": "上下文压缩策略调整",
+    "hint": "LLM 压缩策略下跳过先按轮次截断，并在轮数超限时强制压缩。",
+    "default": true
+  },
+  "remove_computer_use_warning": {
+    "type": "bool",
+    "description": "移除官方英文 Computer Use 提示",
+    "hint": "仅移除 AstrBot 默认在 runtime=none 时追加的英文提示。",
+    "default": true
+  },
+  "minimal_skill_rules": {
+    "type": "bool",
+    "description": "精简技能规则",
+    "hint": "保留动态技能列表，使用固定精简规则替换官方长规则。",
+    "default": true
+  }
+}
