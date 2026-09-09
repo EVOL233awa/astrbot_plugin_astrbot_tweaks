@@ -3,7 +3,9 @@ from dataclasses import dataclass, field
 from types import SimpleNamespace
 
 from astrbot_tweaks.patches.subagent_bypass import (
+    _subagent_active,
     make_patched_step,
+    make_wrapped_execute_handoff,
     with_subagent_context,
 )
 
@@ -190,5 +192,22 @@ def test_patched_step_ignores_main_agent_calls() -> None:
 
         assert runner.final_llm_resp is None
         assert runner.state is None
+
+    asyncio.run(scenario())
+
+
+def test_wrapped_execute_handoff_sets_and_resets_subagent_context() -> None:
+    async def original(cls):
+        yield _subagent_active.get()
+
+    class DummyExecutor:
+        pass
+
+    wrapped = make_wrapped_execute_handoff(original)
+    DummyExecutor._execute_handoff = classmethod(wrapped)
+
+    async def scenario() -> None:
+        assert [result async for result in DummyExecutor._execute_handoff()] == [True]
+        assert _subagent_active.get() is False
 
     asyncio.run(scenario())

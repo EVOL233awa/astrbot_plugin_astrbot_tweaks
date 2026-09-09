@@ -1,3 +1,6 @@
+import asyncio
+from types import SimpleNamespace
+
 import pytest
 
 
@@ -106,11 +109,94 @@ def test_subagent_direct_return_patch_install_restore_is_idempotent() -> None:
     assert not patch.applied
 
 
+def test_subagent_direct_return_skips_second_llm_call() -> None:
+    from astrbot.core.agent.hooks import BaseAgentRunHooks
+    from astrbot.core.agent.runners.tool_loop_agent_runner import ToolLoopAgentRunner
+    from astrbot.core.agent.tool import FunctionTool, ToolSet
+    from astrbot.core.astr_agent_tool_exec import FunctionToolExecutor
+    from astrbot.core.provider.entities import LLMResponse, ProviderRequest
+
+    from astrbot_tweaks.patches.subagent_bypass import (
+        SubAgentDirectReturnPatch,
+        with_subagent_context,
+    )
+
+    class FakeProvider:
+        def __init__(self) -> None:
+            self.provider_config = {"id": "fake", "max_context_tokens": 0}
+            self.provider_settings = {}
+            self.calls = 0
+
+        async def text_chat(self, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return LLMResponse(
+                    role="assistant",
+                    tools_call_name=["read_text_file"],
+                    tools_call_args=[{"path": "/tmp/file"}],
+                    tools_call_ids=["call-1"],
+                )
+            raise AssertionError("second LLM call should not happen")
+
+    async def handler(event, *, path):
+        assert path == "/tmp/file"
+        return "file text"
+
+    patch = SubAgentDirectReturnPatch()
+    patch.install({"subagent_bypass_tools": ["read_text_file"]})
+    try:
+        tool = FunctionTool(
+            name="read_text_file",
+            description="read",
+            parameters={
+                "type": "object",
+                "properties": {"path": {"type": "string"}},
+                "required": ["path"],
+            },
+            handler=handler,
+        )
+        tools = ToolSet()
+        tools.add_tool(tool)
+        provider = FakeProvider()
+        runner = ToolLoopAgentRunner()
+        run_context = SimpleNamespace(
+            context=SimpleNamespace(
+                context=SimpleNamespace(),
+                event=SimpleNamespace(),
+            ),
+            tool_call_timeout=5,
+        )
+
+        async def scenario() -> None:
+            await runner.reset(
+                provider=provider,
+                request=ProviderRequest(prompt="read it", func_tool=tools),
+                run_context=run_context,
+                tool_executor=FunctionToolExecutor(),
+                agent_hooks=BaseAgentRunHooks(),
+                streaming=False,
+            )
+            async for _ in runner.step_until_done(3):
+                pass
+
+        with with_subagent_context():
+            asyncio.run(scenario())
+        final = runner.get_final_llm_resp()
+
+        assert provider.calls == 1
+        assert final is not None
+        assert final.completion_text == "file text"
+        assert final.role == "assistant"
+        assert runner.done()
+    finally:
+        patch.restore()
+
+
 def test_default_registry_status_shape() -> None:
     from astrbot_tweaks.registry import get_patch_status
 
     status = get_patch_status()
-    assert status["version"] == "v0.2.0"
+    assert status["version"] == "v0.2.1"
     assert "context_compression_tweak" in status
     assert "minimal_skill_rules" in status
     assert "llm_kwargs_passthrough" in status
