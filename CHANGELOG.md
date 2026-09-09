@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.2
+
+### Fixed
+
+- 修复并行 SubAgent 直通结果因 `ContextVar` token 跨 Task reset 失败的问题。
+
 ## v0.2.1
 
 ### Fixed

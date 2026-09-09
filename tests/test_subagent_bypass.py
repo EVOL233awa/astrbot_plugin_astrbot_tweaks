@@ -196,7 +196,7 @@ def test_patched_step_ignores_main_agent_calls() -> None:
     asyncio.run(scenario())
 
 
-def test_wrapped_execute_handoff_sets_and_resets_subagent_context() -> None:
+def test_wrapped_execute_handoff_sets_context_without_cross_task_reset() -> None:
     async def original(cls):
         yield _subagent_active.get()
 
@@ -207,7 +207,38 @@ def test_wrapped_execute_handoff_sets_and_resets_subagent_context() -> None:
     DummyExecutor._execute_handoff = classmethod(wrapped)
 
     async def scenario() -> None:
-        assert [result async for result in DummyExecutor._execute_handoff()] == [True]
+        results = DummyExecutor._execute_handoff()
+        assert await asyncio.create_task(anext(results)) is True
         assert _subagent_active.get() is False
 
     asyncio.run(scenario())
+
+
+def test_wrapped_execute_handoff_survives_cross_context_resumption() -> None:
+    seen_states = []
+
+    async def original(cls):
+        seen_states.append(_subagent_active.get())
+        yield "first"
+        seen_states.append(_subagent_active.get())
+        yield "second"
+
+    class DummyExecutor:
+        pass
+
+    wrapped = make_wrapped_execute_handoff(original)
+    DummyExecutor._execute_handoff = classmethod(wrapped)
+    results = DummyExecutor._execute_handoff()
+
+    async def scenario() -> None:
+        # AstrBot resumes tool-executor generators inside new tasks.  A token
+        # created while running one task cannot be reset in a later task.
+        first = await asyncio.create_task(anext(results))
+        second = await asyncio.create_task(anext(results))
+        return first, second
+
+    first, second = asyncio.run(scenario())
+
+    assert first == "first"
+    assert second == "second"
+    assert seen_states == [True, False]

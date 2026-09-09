@@ -196,7 +196,7 @@ def test_default_registry_status_shape() -> None:
     from astrbot_tweaks.registry import get_patch_status
 
     status = get_patch_status()
-    assert status["version"] == "v0.2.1"
+    assert status["version"] == "v0.2.2"
     assert "context_compression_tweak" in status
     assert "minimal_skill_rules" in status
     assert "llm_kwargs_passthrough" in status

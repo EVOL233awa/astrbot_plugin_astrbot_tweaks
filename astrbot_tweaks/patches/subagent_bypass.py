@@ -137,12 +137,11 @@ def make_wrapped_execute_handoff(
         *args: Any,
         **kwargs: Any,
     ) -> AsyncGenerator[Any, None]:
-        token = _subagent_active.set(True)
-        try:
-            async for response in original(cls, *args, **kwargs):
-                yield response
-        finally:
-            _subagent_active.reset(token)
+        # AstrBot resumes tool-executor generators in new asyncio Tasks. A
+        # ContextVar token created in one Task cannot be reset in another.
+        _subagent_active.set(True)
+        async for response in original(cls, *args, **kwargs):
+            yield response
 
     return wrapped
 
