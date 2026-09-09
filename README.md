@@ -1,8 +1,8 @@
 # Astrbot Tweaks
 
-运行时 tweak 插件，不修改 AstrBot 本体源码。它把三项 AstrBot 行为调整做成 WebUI 可配置开关，适合在 AstrBot 后续升级后继续复用。
+运行时 tweak 插件，不修改 AstrBot 本体源码。它把多项 AstrBot 行为调整做成 WebUI 可配置开关，适合在 AstrBot 后续升级后继续复用。
 
-- 版本：v0.1.0
+- 版本：v0.2.0
 - 兼容：AstrBot `>=4.27,<5`
 - 仓库：<https://github.com/EVOL233awa/astrbot_plugin_astrbot_tweaks>
 
@@ -14,6 +14,8 @@
 | `context_compression_tweak` | `true` | 上下文压缩策略调整 |
 | `remove_computer_use_warning` | `true` | 移除官方英文 Computer Use 提示 |
 | `minimal_skill_rules` | `true` | 精简技能规则 |
+| `llm_kwargs_passthrough` | `false` | 透传 `temperature` 与 `max_tokens` |
+| `subagent_direct_return` | `false` | SubAgent 白名单工具结果直通主模型 |
 
 ## 项目结构
 
@@ -23,9 +25,12 @@ astrbot_plugin_astrbot_tweaks/
   astrbot_tweaks/
     compat.py                      AstrBot 版本与兼容性判断
     prompt_utils.py                纯提示词转换逻辑
+    tool_result_cleaners.py        工具结果清洗与截断
     patches/
       context.py                   ContextManager 补丁
       skill_prompt.py              build_skills_prompt 补丁
+      llm_kwargs.py                OpenAI-compatible kwargs 透传补丁
+      subagent_bypass.py           SubAgent 直通拦截切面
     registry.py                    补丁配置、安装、恢复与状态管理
   tests/
     test_compat.py                 版本判断测试
@@ -76,11 +81,49 @@ git clone https://github.com/EVOL233awa/astrbot_plugin_astrbot_tweaks
 3. 只读 `SKILL.md` 直接引用的文件，禁止遍历或全量读取技能目录。
 4. 技能执行失败时不得伪称成功，简短说明后继续。
 
+### LLM kwargs 透传
+
+`llm_kwargs_passthrough` 只处理 `temperature` 和 `max_tokens`。开启后，插件通过
+`Context.llm_generate(..., **kwargs)` 显式传入的这两个参数会真正进入
+OpenAI-compatible 请求，并覆盖 provider `custom_extra_body` 中的同名配置。
+
+其他 kwargs、provider 基础配置和 `custom_extra_body` 中的非同名参数不会被修改。
+
+### SubAgent 直通
+
+`subagent_direct_return` 用于主模型把任务委派给本地小模型 SubAgent 的场景。命中
+`subagent_bypass_tools` 白名单、且本轮只调用一个工具时，工具结果会由 CPU 侧清洗并
+直接回传主模型，跳过小模型读取长文本后的第二轮推理。
+
+默认白名单：
+
+```text
+fetch
+web_search_tavily
+read_text_file
+astr_kb_search
+list_directory
+angel_note_read
+browse_threads
+search_threads
+read_thread
+get_sub_replies
+```
+
+`fetch` 默认返回 Markdown 或 JSON 时直接穿透；只有识别为 HTML 时才移除 `script`、
+`style`、`svg`、注释等噪音。`web_search_tavily` 会格式化当前 AstrBot 返回的
+`results[].title/url/snippet/index` 结构，并按 `subagent_search_top_k` 保留条目。
+所有直通结果都会按 `subagent_direct_max_chars` 截断。
+
+直通只把结果交回主模型继续组织答案，不会直接发送给用户。白名单只应包含只读工具；
+不建议加入写文件、发消息、发帖或账号状态变更类工具。
+
 ## 兼容性与降级
 
 - 插件启动时会检查 AstrBot 版本和核心 API 是否存在。
 - 如果 AstrBot 版本不在支持范围内，或某个补丁所需的内部接口不存在，插件会记录 warning 并跳过对应补丁，不会导致插件加载失败或 AstrBot 崩溃。
 - 上下文压缩补丁运行时遇到异常时，会回退到 AstrBot 官方压缩逻辑。
+- 新增补丁依赖的 AstrBot 内部方法缺失时，对应补丁会跳过；插件本身仍可加载。
 - 插件卸载或重载时会恢复 AstrBot 原始方法。
 
 ## 测试
@@ -100,6 +143,19 @@ python -m pytest tests
 - 插件 zip 大小不超过 16MB。
 
 ## 更新日志
+
+### v0.2.0
+
+### Added
+
+- 新增 OpenAI-compatible Provider 的 `temperature/max_tokens` kwargs 透传开关。
+- 新增 SubAgent 白名单工具直通开关、默认工具白名单和独立开关。
+- 新增 fetch HTML 清洗、Tavily 结果提纯、通用工具结果截断。
+- 新增 LLM kwargs、SubAgent 直通与工具结果清洗测试。
+
+### Fixed
+
+- 修复插件显式传入的 `temperature/max_tokens` 被宿主 payload 准备逻辑丢弃的问题。
 
 ### v0.1.0
 

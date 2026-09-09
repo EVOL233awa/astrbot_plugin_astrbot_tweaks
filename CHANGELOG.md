@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.2.0
+
+### Added
+
+- 新增 OpenAI-compatible Provider 的 `temperature/max_tokens` kwargs 透传开关。
+- 新增 SubAgent 白名单工具直通开关、默认工具白名单和独立清洗开关。
+- 新增 fetch HTML 清洗、Tavily 结果提纯与通用工具结果截断。
+- 新增 LLM kwargs、SubAgent 直通与工具结果清洗测试。
+
+### Fixed
+
+- 修复插件显式传入的 `temperature/max_tokens` 被宿主 payload 准备逻辑丢弃的问题。
+
 ## v0.1.0
 
 - 初始版本。
