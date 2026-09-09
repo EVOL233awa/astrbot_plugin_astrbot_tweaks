@@ -2,7 +2,7 @@
   "enabled": {
     "type": "bool",
     "description": "总开关",
-    "hint": "关闭后三项 tweak 全部不生效。",
+    "hint": "关闭后所有 runtime tweak 全部不生效。",
     "default": true
   },
   "context_compression_tweak": {
@@ -21,6 +21,59 @@
     "type": "bool",
     "description": "精简技能规则",
     "hint": "保留动态技能列表，使用固定精简规则替换官方长规则。",
+    "default": true
+  },
+  "llm_kwargs_passthrough": {
+    "type": "bool",
+    "description": "透传 temperature/max_tokens",
+    "hint": "修复 OpenAI-compatible Provider 丢弃显式 kwargs 的平台缺陷；默认关闭。",
+    "default": false
+  },
+  "subagent_direct_return": {
+    "type": "bool",
+    "description": "SubAgent 白名单工具直通",
+    "hint": "命中白名单的单工具结果经清洗后直接回传主模型，跳过子 Agent 下一轮推理；默认关闭。",
+    "default": false
+  },
+  "subagent_bypass_tools": {
+    "type": "list",
+    "description": "直通白名单工具",
+    "hint": "必须使用 AstrBot 当前注册的完整工具名；未注册工具会自动剔除。",
+    "default": [
+      "fetch",
+      "web_search_tavily",
+      "read_text_file",
+      "astr_kb_search",
+      "list_directory",
+      "angel_note_read",
+      "browse_threads",
+      "search_threads",
+      "read_thread",
+      "get_sub_replies"
+    ]
+  },
+  "subagent_search_top_k": {
+    "type": "int",
+    "description": "搜索保留条目数",
+    "hint": "web_search_tavily 结果保留数量；0 表示不截断。",
+    "default": 4
+  },
+  "subagent_direct_max_chars": {
+    "type": "int",
+    "description": "直通结果字符上限",
+    "hint": "单次直通结果最大字符数；0 表示不截断。",
+    "default": 30000
+  },
+  "subagent_clean_fetch_html": {
+    "type": "bool",
+    "description": "fetch HTML 清洗",
+    "hint": "fetch 返回 HTML/raw 内容时移除 script、style、svg 等噪音。",
+    "default": true
+  },
+  "subagent_clean_web_search": {
+    "type": "bool",
+    "description": "web_search_tavily 提纯",
+    "hint": "搜索结果格式化为紧凑 Markdown，并按配置保留条目数。",
     "default": true
   }
 }

@@ -5,8 +5,8 @@ from astrbot_tweaks.compat import (
 )
 
 
-def test_plugin_version_is_v010() -> None:
-    assert PLUGIN_VERSION == "v0.1.0"
+def test_plugin_version_is_v020() -> None:
+    assert PLUGIN_VERSION == "v0.2.0"
 
 
 def test_parse_astrbot_version_full() -> None:

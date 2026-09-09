@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-PLUGIN_VERSION = "v0.1.0"
+PLUGIN_VERSION = "v0.2.0"
 MIN_SUPPORTED_VERSION = (4, 27, 0)
 MAX_EXCLUDED_VERSION = (5, 0, 0)
 

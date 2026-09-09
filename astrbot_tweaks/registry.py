@@ -7,9 +7,16 @@ from typing import Any
 
 from .compat import PLUGIN_VERSION, is_astrbot_version_supported
 from .patches.context import ContextCompressionPatch
+from .patches.llm_kwargs import LLMKwargsPassthroughPatch
 from .patches.skill_prompt import SkillPromptPatch
+from .patches.subagent_bypass import SubAgentDirectReturnPatch
 
 logger = logging.getLogger(__name__)
+
+_DEFAULT_ENABLED_PATCHES = {
+    "context_compression_tweak",
+    "minimal_skill_rules",
+}
 
 
 class TweakRegistry:
@@ -19,6 +26,8 @@ class TweakRegistry:
         self._patches: dict[str, Any] = {
             "context_compression_tweak": ContextCompressionPatch(),
             "minimal_skill_rules": SkillPromptPatch(),
+            "llm_kwargs_passthrough": LLMKwargsPassthroughPatch(),
+            "subagent_direct_return": SubAgentDirectReturnPatch(),
         }
 
     def apply(self, config: dict[str, Any] | None) -> None:
@@ -38,10 +47,13 @@ class TweakRegistry:
             return
 
         for key, patch in self._patches.items():
-            if not cfg.get(key, True):
+            if not cfg.get(key, key in _DEFAULT_ENABLED_PATCHES):
                 continue
             try:
-                patch.install()
+                if key == "subagent_direct_return":
+                    patch.install(cfg)
+                else:
+                    patch.install()
             except Exception as exc:
                 logger.exception(
                     "Astrbot Tweaks: %s patch skipped: %s",

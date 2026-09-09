@@ -1,4 +1,6 @@
 from astrbot_tweaks import registry
+from astrbot_tweaks.patches.llm_kwargs import LLMKwargsPassthroughPatch
+from astrbot_tweaks.patches.subagent_bypass import SubAgentDirectReturnPatch
 
 
 class FakePatch:
@@ -65,3 +67,48 @@ def test_reapply_is_idempotent(monkeypatch) -> None:
     assert reg._patches["context_compression_tweak"].install_count == 2
     assert reg._patches["context_compression_tweak"].restore_count == 2
     assert reg._patches["context_compression_tweak"].applied
+
+
+def test_registry_registers_v020_patches_disabled_by_default() -> None:
+    reg = registry.TweakRegistry()
+    assert isinstance(reg._patches["llm_kwargs_passthrough"], LLMKwargsPassthroughPatch)
+    assert isinstance(reg._patches["subagent_direct_return"], SubAgentDirectReturnPatch)
+
+    reg.apply({"enabled": True})
+    assert not reg._patches["llm_kwargs_passthrough"].applied
+    assert not reg._patches["subagent_direct_return"].applied
+
+
+def test_registry_passes_subagent_config_to_patch(monkeypatch) -> None:
+    received = {}
+
+    class FakeSubAgentPatch:
+        applied = False
+
+        def install(self, config=None):
+            received.update(config or {})
+            self.applied = True
+
+        def restore(self):
+            self.applied = False
+
+    monkeypatch.setattr(
+        registry,
+        "SubAgentDirectReturnPatch",
+        FakeSubAgentPatch,
+    )
+    monkeypatch.setattr(registry, "is_astrbot_version_supported", lambda: True)
+    reg = registry.TweakRegistry()
+    reg._patches["subagent_direct_return"] = FakeSubAgentPatch()
+    reg.apply(
+        {
+            "enabled": True,
+            "subagent_direct_return": True,
+            "subagent_bypass_tools": ["read_text_file"],
+            "subagent_direct_max_chars": 1200,
+        }
+    )
+
+    assert reg._patches["subagent_direct_return"].applied
+    assert received["subagent_bypass_tools"] == ["read_text_file"]
+    assert received["subagent_direct_max_chars"] == 1200
