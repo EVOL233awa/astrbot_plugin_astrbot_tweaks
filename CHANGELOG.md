@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.1
+
+### Fixed
+
+- 修复透传参数上下文在 payload 准备完成后被提前清理，导致实际请求仍使用 provider 默认值的问题。
+
+### Changed
+
+- 补充 SubAgent 直通端到端回归测试。
+
 ## v0.2.0
 
 ### Added

@@ -6,7 +6,7 @@ desc: |
   支持独立开关：上下文压缩策略、移除官方英文 Computer Use 提示、精简技能规则、
   OpenAI-compatible temperature/max_tokens 透传，以及 SubAgent 白名单工具直通。
   插件卸载或重载时恢复原始行为；AstrBot 版本或 API 不兼容时自动降级并保持插件可加载。
-version: v0.2.0
+version: v0.2.1
 author: EvoidNGC
 repo: https://github.com/EVOL233awa/astrbot_plugin_astrbot_tweaks
 astrbot_version: ">=4.27,<5"

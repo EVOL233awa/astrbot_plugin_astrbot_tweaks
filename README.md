@@ -2,7 +2,7 @@
 
 运行时 tweak 插件，不修改 AstrBot 本体源码。它把多项 AstrBot 行为调整做成 WebUI 可配置开关，适合在 AstrBot 后续升级后继续复用。
 
-- 版本：v0.2.0
+- 版本：v0.2.1
 - 兼容：AstrBot `>=4.27,<5`
 - 仓库：<https://github.com/EVOL233awa/astrbot_plugin_astrbot_tweaks>
 
@@ -143,6 +143,13 @@ python -m pytest tests
 - 插件 zip 大小不超过 16MB。
 
 ## 更新日志
+
+### v0.2.1
+
+### Fixed
+
+- 修复透传参数上下文在 payload 准备完成后被提前清理，导致实际请求仍使用 provider 默认值的问题。
+  补充 SubAgent 直通的端到端回归测试。
 
 ### v0.2.0
 
