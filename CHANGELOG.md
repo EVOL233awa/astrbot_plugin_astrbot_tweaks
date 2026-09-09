@@ -12,6 +12,7 @@
 ### Fixed
 
 - 修复插件显式传入的 `temperature/max_tokens` 被宿主 payload 准备逻辑丢弃的问题。
+- 修复透传参数上下文在 payload 准备完成后被提前清理，导致实际请求仍使用 provider 默认值的问题。
 
 ## v0.1.0
 

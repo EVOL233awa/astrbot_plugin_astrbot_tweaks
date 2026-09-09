@@ -98,6 +98,39 @@ def test_patched_apply_overrides_allowed_keys_after_custom_extra_body() -> None:
     assert "max_tokens" not in extra_body
 
 
+def test_patched_apply_reads_kwargs_after_prepare_returns() -> None:
+    class Provider:
+        default_params = {"temperature", "max_tokens"}
+
+        async def prepare(self, *args, **kwargs):
+            return {"messages": []}, []
+
+        def apply(self, payloads, extra_body):
+            extra_body["provider"] = True
+
+    provider = Provider()
+    patched_prepare = make_patched_prepare(Provider.prepare)
+    patched_apply = make_patched_apply_overrides(Provider.apply)
+
+    async def scenario() -> None:
+        await patched_prepare(
+            provider,
+            "prompt",
+            temperature=0.3,
+            max_tokens=1024,
+        )
+        payloads = {"temperature": 0.2, "max_tokens": 600}
+        extra_body = {"temperature": 0.9, "max_tokens": 2048}
+        patched_apply(provider, payloads, extra_body)
+
+        assert payloads["temperature"] == 0.3
+        assert payloads["max_tokens"] == 1024
+        assert "temperature" not in extra_body
+        assert "max_tokens" not in extra_body
+
+    asyncio.run(scenario())
+
+
 def test_llm_kwargs_patch_install_and_restore_are_idempotent() -> None:
     class DummyProvider:
         default_params = {"temperature", "max_tokens"}

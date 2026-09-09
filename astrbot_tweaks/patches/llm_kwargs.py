@@ -40,11 +40,8 @@ def make_patched_prepare(
 
     async def patched(self, *args: Any, **kwargs: Any):
         overrides = extract_llm_kwargs(kwargs)
-        token = _llm_kwargs.set(overrides)
-        try:
-            return await original(self, *args, **kwargs)
-        finally:
-            _llm_kwargs.reset(token)
+        _llm_kwargs.set(overrides)
+        return await original(self, *args, **kwargs)
 
     return patched
 
