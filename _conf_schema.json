@@ -23,11 +23,32 @@
     "hint": "保留动态技能列表，使用固定精简规则替换官方长规则。",
     "default": true
   },
+  "reasoning_only_guard": {
+    "type": "bool",
+    "description": "拦截仅含 reasoning 的空正文响应",
+    "hint": "正文为空且没有工具调用时触发 EmptyModelOutputError，并复用 AstrBot 的自动重试。",
+    "default": true
+  },
+  "empty_output_retry_attempts": {
+    "type": "int",
+    "description": "空正文自动重试次数",
+    "hint": "取值范围 1-10；直接设置 AstrBot 空输出重试次数，reasoning-only 拦截复用该重试链路。",
+    "default": 3
+  },
   "llm_kwargs_passthrough": {
     "type": "bool",
-    "description": "透传 temperature/max_tokens",
+    "description": "透传显式 LLM 参数",
     "hint": "修复 OpenAI-compatible Provider 丢弃显式 kwargs 的平台缺陷；默认关闭。",
     "default": false
+  },
+  "llm_kwargs_allowlist": {
+    "type": "list",
+    "description": "允许透传的 LLM 参数",
+    "hint": "仅允许显式传入这些键；messages/model/tools/stream 等结构参数始终禁止。",
+    "default": [
+      "temperature",
+      "max_tokens"
+    ]
   },
   "subagent_direct_return": {
     "type": "bool",

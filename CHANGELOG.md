@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.3.0
+
+### Added
+
+- 新增 `reasoning_only_guard`，默认拦截只有 `reasoning_content`、没有正文和工具调用的模型响应。
+- 新增 `empty_output_retry_attempts`，可配置 reasoning-only 空正文的自动重试次数，范围 1-10。
+- 新增 `llm_kwargs_allowlist`，可配置允许透传的 LLM 参数白名单。
+- 对 `messages`、`model`、`tools`、`stream` 等结构参数增加强制禁止规则。
+- 新增 reasoning-only、空正文重试和运行时安装恢复测试。
+
+### Changed
+
+- reasoning-only 响应统一抛出 `EmptyModelOutputError`，复用 AstrBot 自动重试链路，避免静默空回复。
+- `llm_kwargs_passthrough` 从固定只支持 `temperature/max_tokens` 改为按白名单透传。
+
 ## v0.2.2
 
 ### Fixed

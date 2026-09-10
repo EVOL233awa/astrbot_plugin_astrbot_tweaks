@@ -7,7 +7,9 @@ from typing import Any
 
 from .compat import PLUGIN_VERSION, is_astrbot_version_supported
 from .patches.context import ContextCompressionPatch
+from .patches.empty_output_retry import EmptyOutputRetryPatch
 from .patches.llm_kwargs import LLMKwargsPassthroughPatch
+from .patches.reasoning_guard import ReasoningOnlyGuardPatch
 from .patches.skill_prompt import SkillPromptPatch
 from .patches.subagent_bypass import SubAgentDirectReturnPatch
 
@@ -15,7 +17,9 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_ENABLED_PATCHES = {
     "context_compression_tweak",
+    "empty_output_retry",
     "minimal_skill_rules",
+    "reasoning_only_guard",
 }
 
 
@@ -25,7 +29,9 @@ class TweakRegistry:
     def __init__(self) -> None:
         self._patches: dict[str, Any] = {
             "context_compression_tweak": ContextCompressionPatch(),
+            "empty_output_retry": EmptyOutputRetryPatch(),
             "minimal_skill_rules": SkillPromptPatch(),
+            "reasoning_only_guard": ReasoningOnlyGuardPatch(),
             "llm_kwargs_passthrough": LLMKwargsPassthroughPatch(),
             "subagent_direct_return": SubAgentDirectReturnPatch(),
         }
@@ -50,7 +56,12 @@ class TweakRegistry:
             if not cfg.get(key, key in _DEFAULT_ENABLED_PATCHES):
                 continue
             try:
-                if key == "subagent_direct_return":
+                if key in {
+                    "empty_output_retry",
+                    "llm_kwargs_passthrough",
+                    "reasoning_only_guard",
+                    "subagent_direct_return",
+                }:
                     patch.install(cfg)
                 else:
                     patch.install()

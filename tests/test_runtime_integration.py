@@ -79,6 +79,76 @@ def test_llm_kwargs_patch_install_restore_is_idempotent() -> None:
     assert not patch.applied
 
 
+def test_reasoning_only_guard_install_restore_is_idempotent() -> None:
+    from astrbot.core.provider.sources.openai_source import ProviderOpenAIOfficial
+
+    from astrbot_tweaks.patches.reasoning_guard import ReasoningOnlyGuardPatch
+
+    original_parse = ProviderOpenAIOfficial._parse_openai_completion
+    patch = ReasoningOnlyGuardPatch()
+
+    patch.install()
+    first_parse = ProviderOpenAIOfficial._parse_openai_completion
+    patch.install()
+    try:
+        assert ProviderOpenAIOfficial._parse_openai_completion is first_parse
+        assert ProviderOpenAIOfficial._parse_openai_completion is not original_parse
+        assert patch.applied
+    finally:
+        patch.restore()
+
+    assert ProviderOpenAIOfficial._parse_openai_completion is original_parse
+    assert not patch.applied
+
+
+def test_empty_output_retry_patch_install_restore_is_idempotent() -> None:
+    from astrbot.core.agent.runners.tool_loop_agent_runner import ToolLoopAgentRunner
+
+    from astrbot_tweaks.patches.empty_output_retry import EmptyOutputRetryPatch
+
+    original = ToolLoopAgentRunner.EMPTY_OUTPUT_RETRY_ATTEMPTS
+    patch = EmptyOutputRetryPatch()
+
+    patch.install({"empty_output_retry_attempts": 6})
+    try:
+        assert ToolLoopAgentRunner.EMPTY_OUTPUT_RETRY_ATTEMPTS == 6
+        patch.install({"empty_output_retry_attempts": 8})
+        assert ToolLoopAgentRunner.EMPTY_OUTPUT_RETRY_ATTEMPTS == 6
+    finally:
+        patch.restore()
+
+    assert ToolLoopAgentRunner.EMPTY_OUTPUT_RETRY_ATTEMPTS == original
+    assert not patch.applied
+
+
+def test_reasoning_only_guard_raises_runtime_empty_output_error() -> None:
+    from astrbot.core.exceptions import EmptyModelOutputError
+    from astrbot.core.provider.entities import LLMResponse
+
+    from astrbot_tweaks.patches.reasoning_guard import ReasoningOnlyGuardPatch
+
+    class DummyProvider:
+        async def _parse_openai_completion(self, completion, tools):
+            return LLMResponse(
+                role="assistant",
+                reasoning_content="reasoning only",
+            )
+
+    completion = SimpleNamespace(
+        id="resp-empty",
+        choices=[SimpleNamespace(finish_reason="length")],
+    )
+    patch = ReasoningOnlyGuardPatch(target_class=DummyProvider)
+    patch.install()
+    try:
+        with pytest.raises(EmptyModelOutputError, match="reasoning without final content"):
+            asyncio.run(
+                DummyProvider()._parse_openai_completion(completion, None),
+            )
+    finally:
+        patch.restore()
+
+
 def test_subagent_direct_return_patch_install_restore_is_idempotent() -> None:
     from astrbot.core.agent.runners.tool_loop_agent_runner import ToolLoopAgentRunner
     from astrbot.core.astr_agent_tool_exec import FunctionToolExecutor
@@ -196,8 +266,10 @@ def test_default_registry_status_shape() -> None:
     from astrbot_tweaks.registry import get_patch_status
 
     status = get_patch_status()
-    assert status["version"] == "v0.2.2"
+    assert status["version"] == "v0.3.0"
     assert "context_compression_tweak" in status
+    assert "empty_output_retry" in status
     assert "minimal_skill_rules" in status
+    assert "reasoning_only_guard" in status
     assert "llm_kwargs_passthrough" in status
     assert "subagent_direct_return" in status

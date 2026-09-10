@@ -1,5 +1,7 @@
 from astrbot_tweaks import registry
+from astrbot_tweaks.patches.empty_output_retry import EmptyOutputRetryPatch
 from astrbot_tweaks.patches.llm_kwargs import LLMKwargsPassthroughPatch
+from astrbot_tweaks.patches.reasoning_guard import ReasoningOnlyGuardPatch
 from astrbot_tweaks.patches.subagent_bypass import SubAgentDirectReturnPatch
 
 
@@ -71,12 +73,50 @@ def test_reapply_is_idempotent(monkeypatch) -> None:
 
 def test_registry_registers_v020_patches_disabled_by_default() -> None:
     reg = registry.TweakRegistry()
+    assert isinstance(reg._patches["empty_output_retry"], EmptyOutputRetryPatch)
     assert isinstance(reg._patches["llm_kwargs_passthrough"], LLMKwargsPassthroughPatch)
     assert isinstance(reg._patches["subagent_direct_return"], SubAgentDirectReturnPatch)
+    assert isinstance(reg._patches["reasoning_only_guard"], ReasoningOnlyGuardPatch)
 
     reg.apply({"enabled": True})
     assert not reg._patches["llm_kwargs_passthrough"].applied
     assert not reg._patches["subagent_direct_return"].applied
+
+
+def test_registry_passes_new_settings_to_patches(monkeypatch) -> None:
+    received = {}
+
+    class FakePatch:
+        applied = False
+
+        def __init__(self, key):
+            self.key = key
+
+        def install(self, config=None):
+            received[self.key] = config
+            self.applied = True
+
+        def restore(self):
+            self.applied = False
+
+    monkeypatch.setattr(registry, "is_astrbot_version_supported", lambda: True)
+    reg = registry.TweakRegistry()
+    reg._patches = {
+        key: FakePatch(key)
+        for key in ("empty_output_retry", "llm_kwargs_passthrough")
+    }
+    reg.apply(
+        {
+            "enabled": True,
+            "empty_output_retry": True,
+            "empty_output_retry_attempts": 7,
+            "llm_kwargs_passthrough": True,
+            "llm_kwargs_allowlist": ["top_p"],
+        }
+    )
+
+    assert received["empty_output_retry"]["empty_output_retry_attempts"] == 7
+    assert received["llm_kwargs_passthrough"]["llm_kwargs_allowlist"] == ["top_p"]
 
 
 def test_registry_passes_subagent_config_to_patch(monkeypatch) -> None:

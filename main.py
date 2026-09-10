@@ -58,8 +58,18 @@ class AstrbotTweaks(Star):
                     "minimal_skill_rules": bool(
                         self._config_value("minimal_skill_rules", True)
                     ),
+                    "empty_output_retry_attempts": self._config_int(
+                        "empty_output_retry_attempts", 3
+                    ),
+                    "reasoning_only_guard": bool(
+                        self._config_value("reasoning_only_guard", True)
+                    ),
                     "llm_kwargs_passthrough": bool(
                         self._config_value("llm_kwargs_passthrough", False)
+                    ),
+                    "llm_kwargs_allowlist": self._config_list(
+                        "llm_kwargs_allowlist",
+                        ["temperature", "max_tokens"],
                     ),
                     "subagent_direct_return": bool(
                         self._config_value("subagent_direct_return", False)

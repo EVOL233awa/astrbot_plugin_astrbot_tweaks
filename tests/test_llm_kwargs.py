@@ -1,17 +1,19 @@
 import asyncio
 
 from astrbot_tweaks.patches.llm_kwargs import (
-    ALLOWED_LLM_KWARGS,
+    BLOCKED_LLM_KWARGS,
+    DEFAULT_LLM_KWARGS_ALLOWLIST,
     LLMKwargsPassthroughPatch,
     extract_llm_kwargs,
     make_patched_apply_overrides,
     make_patched_prepare,
+    normalize_llm_kwargs_allowlist,
     with_llm_kwargs,
 )
 
 
 def test_llm_kwargs_allowlist_is_minimal() -> None:
-    assert ALLOWED_LLM_KWARGS == frozenset({"temperature", "max_tokens"})
+    assert DEFAULT_LLM_KWARGS_ALLOWLIST == ("temperature", "max_tokens")
 
 
 def test_extract_llm_kwargs_keeps_only_allowed_values() -> None:
@@ -22,6 +24,34 @@ def test_extract_llm_kwargs_keeps_only_allowed_values() -> None:
         "enable_thinking": False,
     }
     assert extract_llm_kwargs(kwargs) == {"temperature": 0.3, "max_tokens": 1024}
+
+
+def test_extract_llm_kwargs_respects_custom_allowlist() -> None:
+    kwargs = {
+        "temperature": 0.3,
+        "max_tokens": 1024,
+        "top_p": 0.9,
+        "reasoning_effort": "low",
+    }
+    assert extract_llm_kwargs(
+        kwargs,
+        ("top_p", "reasoning_effort"),
+    ) == {"top_p": 0.9, "reasoning_effort": "low"}
+
+
+def test_normalize_llm_kwargs_allowlist_blocks_structural_keys() -> None:
+    assert normalize_llm_kwargs_allowlist(
+        [
+            "top_p",
+            "reasoning_effort",
+            "model",
+            "messages",
+            "tools",
+            "bad-key",
+            "top_p",
+        ]
+    ) == ("top_p", "reasoning_effort")
+    assert BLOCKED_LLM_KWARGS >= {"model", "messages", "tools", "stream"}
 
 
 def test_extract_llm_kwargs_ignores_none_values() -> None:
@@ -98,6 +128,25 @@ def test_patched_apply_overrides_allowed_keys_after_custom_extra_body() -> None:
     assert "max_tokens" not in extra_body
 
 
+def test_patched_apply_overrides_custom_allowlist() -> None:
+    class Provider:
+        default_params = {"temperature", "top_p"}
+
+    def original(self, payloads, extra_body):
+        _ = self, payloads, extra_body
+
+    payloads = {"top_p": 0.2}
+    extra_body = {"top_p": 0.9}
+    patched = make_patched_apply_overrides(original, ("top_p",))
+
+    with with_llm_kwargs({"top_p": 0.7, "temperature": 0.3}):
+        patched(Provider(), payloads, extra_body)
+
+    assert payloads["top_p"] == 0.7
+    assert "top_p" not in extra_body
+    assert "temperature" not in payloads
+
+
 def test_patched_apply_reads_kwargs_after_prepare_returns() -> None:
     class Provider:
         default_params = {"temperature", "max_tokens"}
@@ -149,9 +198,9 @@ def test_llm_kwargs_patch_install_and_restore_are_idempotent() -> None:
     original_apply = DummyProvider._apply_provider_specific_request_overrides
     patch = LLMKwargsPassthroughPatch(target_class=DummyProvider)
 
-    patch.install()
+    patch.install({"llm_kwargs_allowlist": ["temperature"]})
     first_prepare = DummyProvider._prepare_chat_payload
-    patch.install()
+    patch.install({"llm_kwargs_allowlist": ["top_p"]})
     assert DummyProvider._prepare_chat_payload is first_prepare
     assert patch.applied
 
@@ -161,6 +210,7 @@ def test_llm_kwargs_patch_install_and_restore_are_idempotent() -> None:
         assert provider.applied_kwargs["temperature"] == 0.3
 
     asyncio.run(scenario())
+    assert patch.allowlist == ("temperature",)
 
     patch.restore()
     assert DummyProvider._prepare_chat_payload is original_prepare
